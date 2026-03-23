@@ -21,3 +21,4 @@ encrypted-dna-web/out/
 # OS
 .DS_Store
 Thumbs.db
+.vercel

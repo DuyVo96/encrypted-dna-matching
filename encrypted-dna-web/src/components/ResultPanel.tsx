@@ -5,7 +5,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
 import { motion } from 'framer-motion';
-import { Dna, Clock, ArrowLeft, RefreshCw, Shield, CheckCircle2, ExternalLink, Lock } from 'lucide-react';
+import { Dna, Clock, ArrowLeft, RefreshCw, Shield, CheckCircle2, ExternalLink, Lock, Loader2 } from 'lucide-react';
 import { useDnaStore } from '@/store/dnaStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ const CIRCUIT_SOURCE = 'https://raw.githubusercontent.com/DuyVo96/arcium-circuit
 // Ed25519 verifying key of the Arcium devnet cluster that signed the output
 const CLUSTER_VERIFY_KEY = '5VyiJ68LTAQNWxe9tnjartmR8Fzh7TJAUS4VZBvcEodV';
 import { fetchMatchResults } from '@/lib/solanaClient';
-import { decryptScore, loadEphemeralKey } from '@/lib/arciumDNAUtils';
+import { decryptScore, deriveEphemeralKey } from '@/lib/arciumDNAUtils';
 import type { MatchResult } from '@/types/dna';
 
 interface ResultPanelProps {
@@ -49,7 +49,7 @@ function scoreInterpretation(score: number): string {
 
 export function ResultPanel({ programId }: ResultPanelProps) {
   const { connection } = useConnection();
-  const { publicKey, signTransaction, signAllTransactions } = useWallet();
+  const { publicKey, signTransaction, signAllTransactions, signMessage } = useWallet();
 
   const {
     activeResult,
@@ -62,27 +62,36 @@ export function ResultPanel({ programId }: ResultPanelProps) {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [decryptedScore, setDecryptedScore] = useState<number | null>(null);
+  const [isDecrypting, setIsDecrypting] = useState(false);
 
-  // Try to decrypt the score whenever activeResult becomes computed
-  useEffect(() => {
-    if (!activeResult?.isComputed || !publicKey || !signTransaction || !signAllTransactions) return;
-
-    // Score is encrypted with user_a's key — only user_a can decrypt
+  const handleDecrypt = async () => {
+    if (!activeResult?.isComputed || !publicKey || !signTransaction || !signAllTransactions || !signMessage) return;
     if (activeResult.userA !== publicKey.toBase58()) return;
 
-    const privKey = loadEphemeralKey(publicKey.toBase58());
-    if (!privKey) return;
+    setIsDecrypting(true);
+    try {
+      const privKey = await deriveEphemeralKey(signMessage, programId);
+      const provider = new anchor.AnchorProvider(
+        connection,
+        { publicKey, signTransaction, signAllTransactions } as anchor.Wallet,
+        { commitment: 'confirmed' },
+      );
+      const score = await decryptScore(provider, programId, activeResult.encScore, activeResult.scoreNonce, privKey);
+      setDecryptedScore(score);
+    } catch (err) {
+      console.warn('Score decryption failed:', err);
+    } finally {
+      setIsDecrypting(false);
+    }
+  };
 
-    const provider = new anchor.AnchorProvider(
-      connection,
-      { publicKey, signTransaction, signAllTransactions } as anchor.Wallet,
-      { commitment: 'confirmed' },
-    );
-
-    decryptScore(provider, programId, activeResult.encScore, activeResult.scoreNonce, privKey)
-      .then(setDecryptedScore)
-      .catch((err) => console.warn('Score decryption failed:', err));
-  }, [activeResult?.isComputed, activeResult?.publicKey, publicKey, connection, programId, signTransaction, signAllTransactions]);
+  // Auto-decrypt when result becomes computed (uses derived key — no localStorage needed)
+  useEffect(() => {
+    if (activeResult?.isComputed && publicKey && signMessage && activeResult.userA === publicKey.toBase58()) {
+      handleDecrypt();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeResult?.isComputed, activeResult?.publicKey, publicKey]);
 
   // Auto-refresh until computed, with change-detection guard
   useEffect(() => {
@@ -166,6 +175,8 @@ export function ResultPanel({ programId }: ResultPanelProps) {
           result={activeResult}
           myAddress={publicKey?.toBase58() ?? ''}
           decryptedScore={decryptedScore}
+          onDecrypt={handleDecrypt}
+          isDecrypting={isDecrypting}
         />
       ) : (
         <div className="text-center py-12 text-dao-text-muted">
@@ -220,10 +231,14 @@ function ActiveResultCard({
   result,
   myAddress,
   decryptedScore,
+  onDecrypt,
+  isDecrypting,
 }: {
   result: MatchResult;
   myAddress: string;
   decryptedScore: number | null;
+  onDecrypt: () => void;
+  isDecrypting: boolean;
 }) {
   const partner = result.userA === myAddress ? result.userB : result.userA;
 
@@ -263,13 +278,23 @@ function ActiveResultCard({
           <p className="font-semibold text-dao-text">Computation complete</p>
           <p className="text-sm text-dao-text-muted mt-1">
             {isUserA
-              ? 'Decrypting score using your stored ephemeral key…'
+              ? 'Sign with your wallet to decrypt the similarity score.'
               : 'The encrypted score is only decryptable by the profile owner (user A).'}
           </p>
           <p className="text-xs text-dao-text-muted mt-2 font-mono break-all">
             enc_score: {Buffer.from(result.encScore).toString('hex').slice(0, 32)}…
           </p>
         </div>
+        {isUserA && (
+          <button
+            onClick={onDecrypt}
+            disabled={isDecrypting}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-dao-primary hover:bg-dao-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors"
+          >
+            {isDecrypting ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
+            {isDecrypting ? 'Signing…' : 'Decrypt Score'}
+          </button>
+        )}
       </div>
     );
   }

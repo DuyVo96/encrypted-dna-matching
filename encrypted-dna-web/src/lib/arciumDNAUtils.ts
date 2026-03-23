@@ -87,18 +87,36 @@ async function getMXEKey(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Derives a deterministic X25519 private key from a wallet signature.
+ * The key is always recoverable from the same wallet + programId, regardless
+ * of browser, domain, or localStorage state.
+ */
+export async function deriveEphemeralKey(
+  signMessage: (msg: Uint8Array) => Promise<Uint8Array>,
+  programId: PublicKey,
+): Promise<Uint8Array> {
+  const msg = new TextEncoder().encode(
+    `arcium:dna:ephemeral:v1:${programId.toBase58()}`,
+  );
+  const sig = await signMessage(msg);
+  // Ed25519 signature is 64 bytes — use first 32 bytes as x25519 private key
+  return sig.slice(0, 32);
+}
+
+/**
  * Encrypts 4 DNA markers using one X25519 ephemeral keypair + RescueCipher.
- * Returns both the on-chain payload and the ephemeral private key (for score
- * decryption later). Caller should persist the private key to localStorage.
+ * If privKey is provided (derived from wallet signature), uses it instead of
+ * a random key, making decryption recoverable across domains.
  */
 export async function encryptDNA(
   provider: anchor.AnchorProvider,
   programId: PublicKey,
   markers: Base[],
+  privKey?: Uint8Array,
 ): Promise<{ enc: EncryptedDNA; ephemeralPrivKey: Uint8Array }> {
   const mxeKey = await getMXEKey(provider, programId);
 
-  const ephemeralPrivKey = x25519.utils.randomPrivateKey();
+  const ephemeralPrivKey = privKey ?? x25519.utils.randomPrivateKey();
   const ephemeralPubKey  = x25519.getPublicKey(ephemeralPrivKey);
   const sharedSecret     = x25519.getSharedSecret(ephemeralPrivKey, mxeKey);
 
@@ -224,7 +242,8 @@ function getSignPdaAddress(programId: PublicKey): PublicKey {
 
 /**
  * Encrypts DNA client-side and submits register_user on-chain.
- * Saves the ephemeral private key to localStorage for later score decryption.
+ * Uses wallet signMessage to derive a deterministic ephemeral key so the
+ * score can be decrypted from any domain/browser.
  *
  * Instruction layout: [8-disc][32 enc_pubkey][16 nonce LE][4×32 dna_cts]
  */
@@ -233,6 +252,7 @@ export async function buildRegisterUserTx(
   programId: PublicKey,
   owner: PublicKey,
   markers: Base[],
+  signMessage: (msg: Uint8Array) => Promise<Uint8Array>,
 ): Promise<string> {
   // If the account already exists (e.g. from an older contract layout),
   // fall back to update_dna so the user isn't stuck.
@@ -240,11 +260,11 @@ export async function buildRegisterUserTx(
   const existing = await provider.connection.getAccountInfo(userProfilePDA);
   if (existing) {
     console.warn('UserProfile PDA already exists — using update_dna instead of register_user.');
-    return buildUpdateDnaTx(provider, programId, owner, markers);
+    return buildUpdateDnaTx(provider, programId, owner, markers, signMessage);
   }
 
-  const { enc, ephemeralPrivKey } = await encryptDNA(provider, programId, markers);
-  saveEphemeralKey(owner.toBase58(), ephemeralPrivKey);
+  const ephemeralPrivKey = await deriveEphemeralKey(signMessage, programId);
+  const { enc } = await encryptDNA(provider, programId, markers, ephemeralPrivKey);
 
   const nonceBN  = new anchor.BN(enc.nonce.toString());
   const pkBuf    = Buffer.from(enc.encPubkey);
@@ -285,9 +305,10 @@ export async function buildUpdateDnaTx(
   programId: PublicKey,
   owner: PublicKey,
   markers: Base[],
+  signMessage: (msg: Uint8Array) => Promise<Uint8Array>,
 ): Promise<string> {
-  const { enc, ephemeralPrivKey } = await encryptDNA(provider, programId, markers);
-  saveEphemeralKey(owner.toBase58(), ephemeralPrivKey);
+  const ephemeralPrivKey = await deriveEphemeralKey(signMessage, programId);
+  const { enc } = await encryptDNA(provider, programId, markers, ephemeralPrivKey);
 
   const userProfilePDA = getUserProfilePDA(programId, owner);
 

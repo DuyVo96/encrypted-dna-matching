@@ -26,7 +26,7 @@ const BASES: Base[] = [0, 1, 2, 3];
 
 export function DNAUploadPanel({ programId }: DNAUploadPanelProps) {
   const { connection } = useConnection();
-  const { publicKey, signTransaction, signAllTransactions } = useWallet();
+  const { publicKey, signTransaction, signAllTransactions, signMessage } = useWallet();
 
   const {
     dnaInput,
@@ -65,7 +65,7 @@ export function DNAUploadPanel({ programId }: DNAUploadPanelProps) {
   };
 
   const handleSubmit = async () => {
-    if (!publicKey || !signTransaction || !signAllTransactions) return;
+    if (!publicKey || !signTransaction || !signAllTransactions || !signMessage) return;
 
     setRegisterStatus('signing');
     setError(null);
@@ -79,8 +79,8 @@ export function DNAUploadPanel({ programId }: DNAUploadPanelProps) {
 
       const isUpdate = myProfile?.isRegistered ?? false;
       const sig = isUpdate
-        ? await buildUpdateDnaTx(provider, programId, publicKey, dnaInput)
-        : await buildRegisterUserTx(provider, programId, publicKey, dnaInput);
+        ? await buildUpdateDnaTx(provider, programId, publicKey, dnaInput, signMessage)
+        : await buildRegisterUserTx(provider, programId, publicKey, dnaInput, signMessage);
 
       setTxSig(sig);
       setRegisterStatus('success');
