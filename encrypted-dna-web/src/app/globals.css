@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Wallet adapter modal overrides ───────────────────────────────────────── */
+.wallet-adapter-modal-wrapper {
+  background: #080808 !important;
+  border: 1px solid rgba(107, 53, 232, 0.25) !important;
+}
+
+.wallet-adapter-button {
+  background-color: #6B35E8 !important;
+  border-radius: 8px !important;
+  font-family: Inter, sans-serif !important;
+}
+
+.wallet-adapter-button:hover {
+  background-color: #7B45F8 !important;
+}
+
+/* ── Scrollbar styling ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #080808;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(107, 53, 232, 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 53, 232, 0.7);
+}
+
+/* ── DNA helix animation ────────────────────────────────────────────────────── */
+.dna-strand {
+  animation: dnaFloat 6s ease-in-out infinite;
+}
+
+@keyframes dnaFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+/* ── Glow effects ───────────────────────────────────────────────────────────── */
+.glow-purple {
+  box-shadow: 0 0 20px rgba(107, 53, 232, 0.3);
+}
+.glow-green {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+/* ── DNA base glow ──────────────────────────────────────────────────────────── */
+.base-A { box-shadow: 0 0 12px rgba(16,185,129,0.6); }
+.base-T { box-shadow: 0 0 12px rgba(59,130,246,0.6); }
+.base-G { box-shadow: 0 0 12px rgba(245,158,11,0.6); }
+.base-C { box-shadow: 0 0 12px rgba(239,68,68,0.6); }
+
+/* ── Sequencer scan line ────────────────────────────────────────────────────── */
+.seq-scan {
+  position: relative;
+  overflow: hidden;
+}
+.seq-scan::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(107,53,232,0.08), transparent);
+  animation: scanLine 3s ease-in-out infinite;
+}
+@keyframes scanLine {
+  0%   { left: -60%; }
+  100% { left: 120%; }
+}
+
+/* ── Helix backbone pulse ───────────────────────────────────────────────────── */
+@keyframes helixPulse {
+  0%, 100% { stroke-opacity: 0.4; }
+  50%       { stroke-opacity: 1; }
+}
+.helix-backbone { animation: helixPulse 2s ease-in-out infinite; }
+
+/* ── Encrypted sequence flicker ─────────────────────────────────────────────── */
+@keyframes encFlicker {
+  0%, 90%, 100% { opacity: 1; }
+  95%            { opacity: 0.4; }
+}
+.enc-flicker { animation: encFlicker 4s ease-in-out infinite; }
+
+/* ── Step connector line ───────────────────────────────────────────────────── */
+.step-connector::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(107,53,232,0.5), transparent);
+  transform: translateY(-50%);
+}

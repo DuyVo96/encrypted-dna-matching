@@ -1,0 +1,23 @@
+# Skill / local dev notes (not part of submission)
+arcium-solana-nextjs-skill/
+CLAUDE.md
+hd.md
+
+# Environment secrets
+.env.local
+**/.env.local
+.env
+
+# Solana/Anchor build artifacts
+encrypted-dna-contract/target/
+encrypted-dna-contract/.anchor/
+encrypted-dna-contract/test-ledger/
+
+# Node / Next.js
+encrypted-dna-web/node_modules/
+encrypted-dna-web/.next/
+encrypted-dna-web/out/
+
+# OS
+.DS_Store
+Thumbs.db

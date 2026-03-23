@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd encrypted-dna-web && npm run build",
+  "outputDirectory": "encrypted-dna-web/.next",
+  "installCommand": "cd encrypted-dna-web && npm install",
+  "framework": "nextjs"
+}

@@ -1,0 +1,62 @@
+{
+  "circuit_name": "dna_match_v1",
+  "circuit_url": "https://raw.githubusercontent.com/DuyVo96/arcium-circuits/main/dna_match_v1.arcis",
+  "description": "Privacy-preserving DNA similarity computation. Decrypts two sets of 4 encrypted SNP markers inside the TEE, computes Hamming similarity, and returns a score 0-100.",
+  "inputs": [
+    {
+      "name": "user_a_marker_0",
+      "type": "Enc<Shared, u8>",
+      "description": "Encrypted SNP marker 0 for user A (0=A,1=T,2=G,3=C)"
+    },
+    {
+      "name": "user_a_marker_1",
+      "type": "Enc<Shared, u8>",
+      "description": "Encrypted SNP marker 1 for user A"
+    },
+    {
+      "name": "user_a_marker_2",
+      "type": "Enc<Shared, u8>",
+      "description": "Encrypted SNP marker 2 for user A"
+    },
+    {
+      "name": "user_a_marker_3",
+      "type": "Enc<Shared, u8>",
+      "description": "Encrypted SNP marker 3 for user A"
+    },
+    {
+      "name": "user_b_marker_0",
+      "type": "Enc<Shared, u8>",
+      "description": "Encrypted SNP marker 0 for user B"
+    },
+    {
+      "name": "user_b_marker_1",
+      "type": "Enc<Shared, u8>",
+      "description": "Encrypted SNP marker 1 for user B"
+    },
+    {
+      "name": "user_b_marker_2",
+      "type": "Enc<Shared, u8>",
+      "description": "Encrypted SNP marker 2 for user B"
+    },
+    {
+      "name": "user_b_marker_3",
+      "type": "Enc<Shared, u8>",
+      "description": "Encrypted SNP marker 3 for user B"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "similarity_score",
+      "type": "u8",
+      "description": "Percentage of matching SNP markers (0-100). Computed as: matching_count * 25."
+    }
+  ],
+  "callback": {
+    "instruction": "match_callback",
+    "discriminator_note": "sha256('global:match_callback')[0..8] — precompute and embed in setup_devnet.mjs"
+  },
+  "computation": {
+    "description": "For each of the 4 marker positions: decrypt both user values, check equality, count matches, return matches * 25 as u8 similarity score.",
+    "privacy_guarantee": "Neither user's raw marker values leave the Arcium TEE. Only the aggregate similarity score is returned, revealing no individual genotype data."
+  }
+}
