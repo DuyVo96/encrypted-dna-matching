@@ -5,7 +5,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
 import { motion } from 'framer-motion';
-import { Dna, Clock, ArrowLeft, RefreshCw, Shield, CheckCircle2, ExternalLink, Lock } from 'lucide-react';
+import { Dna, Clock, ArrowLeft, RefreshCw, Shield, CheckCircle2, ExternalLink, Lock, X } from 'lucide-react';
 import { useDnaStore } from '@/store/dnaStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,6 +63,25 @@ export function ResultPanel({ programId }: ResultPanelProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [decryptedScore, setDecryptedScore] = useState<number | null>(null);
   const [missingKey, setMissingKey] = useState(false);
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`dna_hidden_${publicKey?.toBase58() ?? ''}`);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  });
+
+  const hideMatch = (matchKey: string) => {
+    setHiddenKeys((prev) => {
+      const next = new Set(prev).add(matchKey);
+      try {
+        localStorage.setItem(
+          `dna_hidden_${publicKey?.toBase58() ?? ''}`,
+          JSON.stringify([...next]),
+        );
+      } catch {}
+      return next;
+    });
+  };
 
   // Auto-decrypt when result becomes computed
   useEffect(() => {
@@ -182,13 +201,14 @@ export function ResultPanel({ programId }: ResultPanelProps) {
         <div className="p-6 rounded-2xl border border-dao-border bg-dao-surface">
           <h3 className="font-medium mb-4">All Matches</h3>
           <div className="space-y-3">
-            {matchResults.map((r) => (
+            {matchResults.filter((r) => !hiddenKeys.has(r.publicKey)).map((r) => (
               <ResultRow
                 key={r.publicKey}
                 result={r}
                 myAddress={publicKey?.toBase58() ?? ''}
                 isActive={r.publicKey === activeResult?.publicKey}
                 onClick={() => setActiveResult(r)}
+                onHide={() => hideMatch(r.publicKey)}
               />
             ))}
           </div>
@@ -400,38 +420,44 @@ function ResultRow({
   myAddress,
   isActive,
   onClick,
+  onHide,
 }: {
   result: MatchResult;
   myAddress: string;
   isActive: boolean;
   onClick: () => void;
+  onHide: () => void;
 }) {
   const partner = result.userA === myAddress ? result.userB : result.userA;
-  const label   = result.isComputed ? 'Computed (tap to decrypt)' : 'Computing…';
+  const label   = result.isComputed ? 'Computed' : 'Computing…';
   const color   = result.isComputed ? 'text-dao-yes' : 'text-dao-text-muted';
 
   return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center justify-between p-3 rounded-xl border transition-colors text-left ${
+    <div
+      className={`flex items-center gap-2 p-3 rounded-xl border transition-colors ${
         isActive
           ? 'border-dao-primary/50 bg-dao-primary/5'
-          : 'border-dao-border hover:border-dao-border-bright bg-dao-bg'
+          : 'border-dao-border bg-dao-bg'
       }`}
     >
-      <div className="flex items-center gap-3">
+      <button onClick={onClick} className="flex-1 flex items-center gap-3 text-left min-w-0">
         <Dna size={16} className={result.isComputed ? 'text-dao-yes' : 'text-dao-text-muted'} />
-        <div>
-          <p className="text-xs font-mono text-dao-text-muted">
+        <div className="min-w-0">
+          <p className="text-xs font-mono text-dao-text-muted truncate">
             {partner.slice(0, 8)}…{partner.slice(-6)}
           </p>
           <p className={`text-xs font-medium ${color}`}>{label}</p>
         </div>
-      </div>
-      {result.isComputed && (
-        <div className="text-xs text-dao-yes">✓</div>
-      )}
-    </button>
+      </button>
+      {result.isComputed && <div className="text-xs text-dao-yes flex-shrink-0">✓</div>}
+      <button
+        onClick={(e) => { e.stopPropagation(); onHide(); }}
+        className="p-1 rounded-lg text-dao-text-muted hover:text-dao-no hover:bg-dao-no/10 transition-colors flex-shrink-0"
+        title="Hide this match"
+      >
+        <X size={14} />
+      </button>
+    </div>
   );
 }
 
